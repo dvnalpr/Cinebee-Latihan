@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../riverpods/fav_riverpod.dart';
+import '../providers/fav_riverpod.dart';
 import '../models/movie.dart';
 
 enum MovieCardType { small, large }

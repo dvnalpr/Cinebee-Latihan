@@ -1,45 +1,60 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../riverpods/profile_riverpod.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+
+import '../providers/profile_riverpod.dart';
+import '../providers/auth_riverpod.dart';
+import '../screens/auth_gate.dart';
 
 class ProfileScreen extends ConsumerWidget {
   const ProfileScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final profile = ref.watch(profileRiverpod);
-    final notifier = ref.read(profileRiverpod.notifier);
+    final firebaseUser = FirebaseAuth.instance.currentUser;
+    final userEmail = firebaseUser?.email ?? 'Guest';
 
+    final profileState = ref.watch(profileRiverpod);
+    final profileNotifier = ref.read(profileRiverpod.notifier);
     final avatars = const [Icons.person, Icons.movie, Icons.star];
+
+    int avatarIndex = profileState.avatarIndex.clamp(0, avatars.length - 1);
 
     return Scaffold(
       appBar: AppBar(title: const Text('Profile')),
-      body: Padding(
-        padding: const EdgeInsets.all(24.0),
+      body: SingleChildScrollView(
+        padding: EdgeInsets.only(
+          left: 24,
+          right: 24,
+          top: 24,
+          bottom: MediaQuery.of(context).viewInsets.bottom + 24,
+        ),
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             CircleAvatar(
               radius: 60,
               backgroundColor: const Color(0xFFFFD700),
-              child: Icon(
-                avatars[profile.avatarIndex],
-                size: 60,
-                color: Colors.black,
+              child: Icon(avatars[avatarIndex], size: 60, color: Colors.black),
+            ),
+            const SizedBox(height: 24),
+
+            Text(
+              'Signed in as:',
+              style: const TextStyle(color: Colors.white70, fontSize: 14),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              userEmail,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
               ),
+              textAlign: TextAlign.center,
             ),
             const SizedBox(height: 24),
-            _buildEditableField(
-              label: 'Name',
-              value: profile.name,
-              onChanged: notifier.updateName,
-            ),
-            const SizedBox(height: 16),
-            _buildEditableField(
-              label: 'Email',
-              value: profile.email,
-              onChanged: notifier.updateEmail,
-            ),
-            const SizedBox(height: 24),
+
             const Text(
               'Choose Avatar',
               style: TextStyle(fontWeight: FontWeight.w600),
@@ -48,9 +63,9 @@ class ProfileScreen extends ConsumerWidget {
             Wrap(
               spacing: 16,
               children: List.generate(avatars.length, (index) {
-                final isSelected = profile.avatarIndex == index;
+                final isSelected = profileState.avatarIndex == index;
                 return GestureDetector(
-                  onTap: () => notifier.updateAvatar(index),
+                  onTap: () => profileNotifier.updateAvatar(index),
                   child: Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
@@ -63,54 +78,62 @@ class ProfileScreen extends ConsumerWidget {
                       ),
                     ),
                     child: CircleAvatar(
-                      backgroundColor: Colors.grey[800],
-                      child: Icon(avatars[index], color: Colors.white),
+                      backgroundColor: Theme.of(
+                        context,
+                      ).colorScheme.surfaceContainer,
+                      child: Icon(
+                        avatars[index],
+                        color: Theme.of(context).colorScheme.onSurface,
+                      ),
                     ),
                   ),
                 );
               }),
             ),
-            const Spacer(),
+            const SizedBox(height: 24),
+
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: () async {
+                  await ref.read(authRepositoryProvider).signOut();
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('You have been logged out'),
+                      backgroundColor: Color(0xFFFFD700),
+                      behavior: SnackBarBehavior.floating,
+                    ),
+                  );
+                  await Future.delayed(const Duration(milliseconds: 500));
+                  if (!context.mounted) return;
+                  Navigator.of(context).pushReplacement(
+                    MaterialPageRoute(builder: (_) => const AuthGate()),
+                  );
+                },
+                icon: const Icon(Icons.logout, color: Colors.red),
+                label: const Text(
+                  'Log Out',
+                  style: TextStyle(color: Colors.red),
+                ),
+                style: OutlinedButton.styleFrom(
+                  side: const BorderSide(color: Colors.red),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 48),
             const Text(
               'Cinebee • Movie Streaming App',
               style: TextStyle(fontSize: 12, color: Colors.white54),
               textAlign: TextAlign.center,
             ),
+            const SizedBox(height: 16),
           ],
         ),
       ),
-    );
-  }
-
-  Widget _buildEditableField({
-    required String label,
-    required String value,
-    required Function(String) onChanged,
-  }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(label, style: const TextStyle(color: Colors.white70)),
-        const SizedBox(height: 4),
-        TextField(
-          decoration: InputDecoration(
-            filled: true,
-            fillColor: const Color(0xFF1E1E1E),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
-              borderSide: BorderSide.none,
-            ),
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 12,
-              vertical: 14,
-            ),
-          ),
-          style: const TextStyle(color: Colors.white),
-          cursorColor: const Color(0xFFFFD700),
-          controller: TextEditingController()..text = value,
-          onChanged: onChanged,
-        ),
-      ],
     );
   }
 }
